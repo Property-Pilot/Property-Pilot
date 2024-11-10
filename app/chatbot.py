@@ -1,6 +1,8 @@
+import os
 from property_info import extract_json_to_dict, fetch_top_properties_detail
 from neighborhood import get_neighborhood_details
 from property_info import extract_json_to_dict, fetch_top_properties_detail
+from map_creation import create_property_map
 from yelp import (
     yelp_advisor,
     fetch_top_businesses_near_properties,
@@ -18,6 +20,7 @@ from prompt_creation import (
 from llm import get_chat_response
 from rag import get_context
 
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAP_API_KEY")
 
 # initial intent
 def intent_classifier(chat, prompts_dict, user_query):
@@ -75,8 +78,11 @@ def chat_property(chat, prompts_dict, user_query, neighborhoods_info, neighborho
     # Case2: Use only properties information
     property_info_final = top_properties
     response_property_final = get_final_respone_property(chat, prompts_dict, user_query, property_info=property_info_final)
+
+    # Generate the property map
+    map_html = create_property_map(api_key=GOOGLE_MAPS_API_KEY, top_properties=top_properties)
     
-    return response_property_final
+    return response_property_final, map_html
 
 
 # functions for restaurant search
@@ -105,12 +111,16 @@ def chat_neighborhood(chat, prompts_dict, user_query, vector_store):
 def chat_all(chat, prompts_dict, user_query, neighborhoods_info, neighborhoods_boundaries, vector_store):
     
     intent_int = intent_classifier(chat, prompts_dict, user_query)
-    
-    if intent_int == 1:
-        return chat_property(chat, prompts_dict, user_query, neighborhoods_info, neighborhoods_boundaries), intent_int
-    elif intent_int == 2:
-        return chat_yelp(chat, prompts_dict, user_query), intent_int
-    elif intent_int == 3:
-        return chat_neighborhood(chat, prompts_dict, user_query, vector_store), intent_int
+
+    if intent_int == 1:  # Property intent
+        response_property_final, map_html = chat_property(chat, prompts_dict, user_query, neighborhoods_info, neighborhoods_boundaries)
+        return response_property_final, map_html, intent_int
+    elif intent_int == 2:  # Yelp intent
+        response_yelp_final = chat_yelp(chat, prompts_dict, user_query)
+        return response_yelp_final, None, intent_int
+    elif intent_int == 3:  # Neighborhood intent
+        response_neighborhood_final = chat_neighborhood(chat, prompts_dict, user_query, vector_store)
+        return response_neighborhood_final, None, intent_int
     else:
-        return get_chat_response(chat, user_query), intent_int
+        response_default = get_chat_response(chat, user_query)
+        return response_default, None, intent_int

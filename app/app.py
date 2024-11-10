@@ -1,16 +1,28 @@
 import streamlit as st
 import time
+import os
+from dotenv import load_dotenv
 from settings import setup, configure_display_options
 from chatbot import chat_all
+from map_creation import get_default_chicago_map_config, render_map
+
+# Load the API key for Google Maps from .env
+load_dotenv()
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAP_API_KEY")
+print("Loaded API Key:", GOOGLE_MAPS_API_KEY)
 
 # Page configuration
-st.set_page_config(page_title="PropertyPilot")
+st.set_page_config(page_title="PropertyPilot", layout="wide")  # "wide" layout for better spacing
 
-# Initialize storage for user accounts and chat histories in session state
+# Initialize storage for user accounts, chat histories, and map HTML in session state
 if "users" not in st.session_state:
     st.session_state.users = {"user1": "password1", "user2": "password2"}
 if "chat_histories" not in st.session_state:
     st.session_state.chat_histories = {}  # To store chat histories per user
+if "current_map_html" not in st.session_state:
+    # Set the initial map to be centered on Chicago
+    default_map_config = get_default_chicago_map_config()
+    st.session_state.current_map_html = render_map(GOOGLE_MAPS_API_KEY, **default_map_config)
 
 # Function for the Sign-Up page
 def signup_page():
@@ -66,23 +78,8 @@ def login_page():
 
 # Function for the main chat app
 def chat_app():
-    st.title("PropertyPilot: InternationAlly")
-    st.write("PropertyPilot is an AI-powered real estate assistant designed to assist you in your property search journey. Ask anything related to properties, neighborhoods, or real estate trends.")
-    
-    if st.button("Log Out"):
-        st.session_state.logged_in = False
-        st.session_state.current_user = None  # Clear the current user
-        st.experimental_rerun()
-    
-    # Clear Conversation button to reset the chat history
-    if st.button("Clear Conversation"):
-        current_user = st.session_state.current_user
-        st.session_state.chat_histories[current_user] = [{"role": "assistant", "content": "Hello! How can I assist you with your property search today?"}]
-        st.success("Chat history cleared.")
-        st.experimental_rerun()
-
-    # Setup the bot and environment, but only once
-    if 'setup_done' not in st.session_state:
+    # Ensure the setup process is done only once
+    if "setup_done" not in st.session_state:
         chat, prompts_dict, neighborhoods_info, neighborhoods_boundaries, vector_store = setup()
         configure_display_options()
         st.session_state.chat = chat
@@ -92,46 +89,88 @@ def chat_app():
         st.session_state.vector_store = vector_store
         st.session_state.setup_done = True
 
-    # Load or initialize chat history for the current user
+    # Ensure the current user and chat history are initialized
     current_user = st.session_state.current_user
     if current_user not in st.session_state.chat_histories:
-        st.session_state.chat_histories[current_user] = [{"role": "assistant", "content": "Hello! How can I assist you with your property search today?"}]
-    
-    # Display chat messages from history
-    for message in st.session_state.chat_histories[current_user]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        st.session_state.chat_histories[current_user] = [
+            {"role": "assistant", "content": "Hello! How can I assist you with your property search today?"}
+        ]
 
-    # Chat input for user to type messages
-    if user_input := st.chat_input("Enter your query here:"):
-        # Display user message
-        st.session_state.chat_histories[current_user].append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
+    # Center the layout with three columns
+    container = st.container()
+    with container:
+        col1, col2, col3 = st.columns([1, 3, 2], gap="large")
 
-        # Retrieve the chatbot and related objects from session state
-        chat = st.session_state.chat
-        prompts_dict = st.session_state.prompts_dict
-        neighborhoods_info = st.session_state.neighborhoods_info
-        neighborhoods_boundaries = st.session_state.neighborhoods_boundaries
-        vector_store = st.session_state.vector_store
+        # Add Chat History on the side
+        with col1:
+            st.write("Chat History")
 
-        # Get chatbot response
-        response, intent = chat_all(chat, prompts_dict, user_input, neighborhoods_info, neighborhoods_boundaries, vector_store)
+        # Add the main chat interface in the center
+        with col2:
+            st.title("PropertyPilot: InternationAlly")
+            st.write(
+                "PropertyPilot is an AI-powered real estate assistant designed to assist you in your property search journey. "
+                "Ask anything related to properties, neighborhoods, or real estate trends."
+            )
 
-        # Simulate gradual response with a spinner
-        with st.chat_message("assistant"):
-            placeholder = st.empty()  # Create a placeholder for the gradual text output
-            gradual_text = ""
+            # Log Out and Clear Conversation Buttons
+            col_button1, col_button2 = st.columns([1, 1])
+            with col_button1:
+                if st.button("Log Out"):
+                    st.session_state.logged_in = False
+                    st.session_state.current_user = None
+                    st.experimental_rerun()
 
-            with st.spinner("Thinking..."):
-                for word in response.split():
-                    gradual_text += word + " "
-                    placeholder.markdown(gradual_text)  # Update the placeholder with the new word
-                    time.sleep(0.05)
+            with col_button2:
+                if st.button("Clear Conversation"):
+                    st.session_state.chat_histories[current_user] = [
+                        {"role": "assistant", "content": "Hello! How can I assist you with your property search today?"}
+                    ]
+                    st.success("Chat history cleared.")
+                    st.experimental_rerun()
 
-        # Add assistant response to the conversation history for the current user
-        st.session_state.chat_histories[current_user].append({"role": "assistant", "content": response})
+            # Display chat messages
+            for message in st.session_state.chat_histories[current_user]:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            # Chat input for user to type messages
+            if user_input := st.chat_input("Enter your query here:"):
+                st.session_state.chat_histories[current_user].append({"role": "user", "content": user_input})
+                with st.chat_message("user"):
+                    st.markdown(user_input)
+
+                # Process the user input with the chatbot
+                response, map_html, intent = chat_all(
+                    st.session_state.chat,
+                    st.session_state.prompts_dict,
+                    user_input,
+                    st.session_state.neighborhoods_info,
+                    st.session_state.neighborhoods_boundaries,
+                    st.session_state.vector_store,
+                )
+
+                # Display the chatbot's response
+                with st.chat_message("assistant"):
+                    placeholder = st.empty()
+                    gradual_text = ""
+
+                    with st.spinner("Thinking..."):
+                        for word in response.split():
+                            gradual_text += word + " "
+                            placeholder.markdown(gradual_text)
+                            time.sleep(0.05)
+
+                # Add the response to chat history
+                st.session_state.chat_histories[current_user].append({"role": "assistant", "content": response})
+
+                # Update the map if needed
+                if map_html and map_html != st.session_state.current_map_html:
+                    st.session_state.current_map_html = map_html
+
+        # Display the map in the right column
+        with col3:
+            st.components.v1.html(st.session_state.current_map_html, height=500, width=500)
 
 # Main app logic to control flow between login, sign-up, and chat pages
 if "logged_in" not in st.session_state:

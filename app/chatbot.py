@@ -143,7 +143,7 @@ def chat_international(chat, prompts_dict, user_query, vectordb, fusion=False):
             metadata_fields=['source', 'source_type'],
             include_content=True
             )
-    print('Contexts:', chunks_formated)
+    # print('Contexts:', chunks_formated)
     prompt_rag_international = generate_prompt_rag_international(prompts_dict['instruction_rag_international'], chunks_formated, user_query)
     response_international_final = get_chat_response(chat, prompt_rag_international)
     return response_international_final

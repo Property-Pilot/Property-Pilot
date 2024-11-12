@@ -8,8 +8,7 @@ from map_creation import get_default_chicago_map_config, render_map
 
 # Load the API key for Google Maps from .env
 load_dotenv()
-GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAP_API_KEY")
-print("Loaded API Key:", GOOGLE_MAPS_API_KEY)
+GOOGLE_MAPS_API_KEY = os.getenv("DEV_GOOGLE_MAP_API_KEY")
 
 # Page configuration
 st.set_page_config(page_title="PropertyPilot", layout="wide")  # "wide" layout for better spacing

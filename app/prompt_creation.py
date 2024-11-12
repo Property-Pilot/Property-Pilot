@@ -116,3 +116,41 @@ def generate_prompt_rest_category(output_instructions, user_query, categories):
     updated_instruction = output_instructions.replace("{USER_QUERY}", user_query)
     updated_instruction = updated_instruction.replace("{CATEGORIES_STRING}", categories_string)
     return updated_instruction
+
+def generate_prompt_local_advisor(instruction, user_query):
+    """
+    Generates a prompt for refining the user's query for Local Advisor.
+    Args:
+        instruction (str): The instruction template containing placeholders for the query.
+        user_query (str): The user's current query.
+    Returns:
+        str: The instruction with the placeholder replaced by the user's query.
+    """
+    return instruction.replace("{USER_QUERY}", user_query)
+
+def generate_prompt_local_advisor_response(instruction, user_query, places):
+    """
+    Generates a prompt for the LLM to create a response for the Local Advisor.
+
+    Args:
+        instruction (str): The instruction template containing placeholders.
+        user_query (str): The user's query.
+        places (list): A list of places from the Google Places API.
+
+    Returns:
+        str: The prompt for the LLM.
+    """
+    # Convert the places list to a detailed string for inclusion in the prompt
+    places_str = "\n".join(
+        [
+            f"Place {i+1}:\n" + "\n".join([f"  {key}: {value}" for key, value in place.items()])
+            for i, place in enumerate(places[:5])  # Limit to 5 places
+        ]
+    )
+
+    # Replace placeholders in the instruction
+    prompt = instruction.replace("{USER_QUERY}", user_query)
+    prompt = prompt.replace("{PLACES}", places_str)
+    return prompt
+
+

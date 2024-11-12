@@ -166,20 +166,23 @@ def render_map(api_key, center, zoom=14, markers=None):
     """
     
     if markers:
-        for marker in markers:
+        for i, marker in enumerate(markers):
             html += f"""
-                    var marker = new google.maps.Marker({{
-                        position: {{ lat: {marker['lat']}, lng: {marker['lng']} }},
-                        map: map,
-                        title: "{marker['title']}"
-                    }});
-                    google.maps.event.addListener(marker, 'click', function() {{
-                        infowindow.setContent(`
+                    (function() {{
+                        var marker = new google.maps.Marker({{
+                            position: {{ lat: {marker['lat']}, lng: {marker['lng']} }},
+                            map: map,
+                            title: "{marker['title']}"
+                        }});
+                        var infoContent = `
                             <h3>{marker['title']}</h3>
                             <p>{marker['info']}</p>
-                        `);
-                        infowindow.open(map, marker);
-                    }});
+                        `;
+                        google.maps.event.addListener(marker, 'click', function() {{
+                            infowindow.setContent(infoContent);
+                            infowindow.open(map, marker);
+                        }});
+                    }})();
             """
     
     html += """
@@ -191,9 +194,8 @@ def render_map(api_key, center, zoom=14, markers=None):
         </body>
     </html>
     """
-    print("Generated HTML:", html)  # Debug HTML output
-    print("API key used:", api_key)  # Debug HTML output
     return html
+
 
 
 def create_property_map(api_key, top_properties):
@@ -241,3 +243,78 @@ def create_property_map(api_key, top_properties):
     }
 
     return render_map(api_key, center=center, zoom=14, markers=markers)
+
+def create_local_advisor_map(api_key, places):
+    """
+    Creates an interactive map for the Local Advisor feature.
+
+    Args:
+        api_key (str): Google Maps API key.
+        places (list): List of places returned by the Places API.
+
+    Returns:
+        str: HTML string for embedding in Streamlit.
+    """
+    markers = []
+
+    for place in places[:5]:
+        # Extract required fields
+        lat = place["geometry"]["location"]["lat"]
+        lng = place["geometry"]["location"]["lng"]
+        title = place["name"]
+        address = place.get("formatted_address", "No address available")
+        price_level = place.get("price_level", "Not available")
+        rating = place.get("rating", "Not rated")
+        user_ratings = place.get("user_ratings_total", "No ratings")
+        open_now = (
+            "Yes" if place.get("opening_hours", {}).get("open_now") else "No information"
+        )
+        icon_url = place.get("icon")  # Icon URL
+        photo_reference = None
+
+        # Check for a photo in the place details
+        if "photos" in place and len(place["photos"]) > 0:
+            photo_reference = place["photos"][0].get("photo_reference")
+        
+        # Construct photo URL (if available)
+        if photo_reference:
+            photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_reference}&key={api_key}"
+        else:
+            photo_url = icon_url  # Fallback to icon if no photo available
+
+        # Create an HTML info string for the marker
+        info = (
+            f"<div style='text-align:center;'>"
+            f"<img src='{photo_url}' alt='Image' style='width:100px;height:auto;'><br>"
+            f"<b>{title}</b><br>"
+            f"</div>"
+            f"Address: {address}<br>"
+            f"Price Level: {price_level}<br>"
+            f"Rating: {rating} ({user_ratings} reviews)<br>"
+            f"Open Now: {open_now}"
+        )
+
+        # Append the marker information
+        markers.append(
+            {
+                "lat": lat,
+                "lng": lng,
+                "title": title,
+                "info": info,
+            }
+        )
+
+    # Center the map on the first place if available, otherwise use Chicago coordinates
+    if places:
+        center = {
+            "lat": places[0]["geometry"]["location"]["lat"],
+            "lng": places[0]["geometry"]["location"]["lng"],
+        }
+    else:
+        center = {"lat": 41.8781, "lng": -87.6298}
+
+    # Render the map
+    return render_map(api_key, center=center, markers=markers, zoom=12)
+
+
+

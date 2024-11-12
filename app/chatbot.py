@@ -15,12 +15,13 @@ from prompt_creation import (
     generate_prompt_yelp_advisor,
     final_output_yelp_advisor,
     generate_prompt_rag_international,
-    generate_prompt_general
+    generate_prompt_general,
+    generate_prompt_rewrite_query
 )
 from llm import get_chat_response
-from rag import get_context
+from rag import get_context, reciprocal_rank_fusion
 from vector_search import search_similar_chunks, format_chunk_results
-
+import json
 
 # initial intent
 def intent_classifier(chat, prompts_dict, user_query):
@@ -104,9 +105,39 @@ def chat_yelp(chat, prompts_dict, user_query):
 #     return response_neighborhood_final
 
 
+def rewrite_queries(chat, prompts_dict, user_query):
+    prompt_rewrite_query = generate_prompt_rewrite_query(prompts_dict['instruction_rewrite_query'], user_query)
+    response_rewrite_query = get_chat_response(chat, prompt_rewrite_query)
+    print("Original Response from Rewrite Queries:", response_rewrite_query)
+
+    try:
+        # Attempt to parse the response content as JSON list
+        result = json.loads(response_rewrite_query)
+
+        # Check if result is a list and contains the original question and rewrites
+        if isinstance(result, list) and user_query in result:
+            return result
+        else:
+            # Return original question if parsing fails
+            return [user_query]
+    except (json.JSONDecodeError, AttributeError):
+        # Return original question if there's an error
+        return [user_query]
+
+
 # functions for international students
-def chat_international(chat, prompts_dict, user_query, vectordb):
-    chunks = search_similar_chunks(vectorstore=vectordb, query=user_query, k=4)
+def chat_international(chat, prompts_dict, user_query, vectordb, fusion=False):
+
+    if fusion:
+        rewritten_queries = rewrite_queries(chat, prompts_dict, user_query)
+        all_results = []
+        for query in rewritten_queries:
+            chunks = search_similar_chunks(vectorstore=vectordb, query=query, k=5)
+            all_results.append(chunks)
+        chunks = reciprocal_rank_fusion(all_results, top_n=5)
+    else:
+        chunks = search_similar_chunks(vectorstore=vectordb, query=user_query, k=5)
+    
     chunks_formated = format_chunk_results(
             chunks,
             metadata_fields=['source', 'source_type'],

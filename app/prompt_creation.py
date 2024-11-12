@@ -137,3 +137,11 @@ def generate_prompt_general(instructions, user_query):
     """
     updated_instruction = instructions.replace("{USER_QUERY}", user_query)
     return updated_instruction
+
+
+def generate_prompt_rewrite_query(instructions, user_query):
+    """
+    Generates prompt for rewriting queries by replacing placeholders with the user query.
+    """
+    updated_instruction = instructions.replace("{USER_QUERY}", user_query)
+    return updated_instruction

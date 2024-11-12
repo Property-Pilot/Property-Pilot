@@ -166,6 +166,6 @@ def chat_all(chat, prompts_dict, user_query, neighborhoods_info, neighborhoods_b
     elif intent_int == 2:
         return chat_yelp(chat, prompts_dict, user_query), intent_int
     elif intent_int == 3:
-        return chat_international(chat, prompts_dict, user_query, vectordb), intent_int
+        return chat_international(chat, prompts_dict, user_query, vectordb, fusion=True), intent_int
     else:
         return chat_general(chat, prompts_dict, user_query), intent_int

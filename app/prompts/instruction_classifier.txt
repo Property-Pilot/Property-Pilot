@@ -9,7 +9,7 @@ First, if the previous conversation provides enough information to answer the qu
 Next, if the previous conversation doesn't provide enough information, follow the rules below:
 - If the question is about searching for rentals or real estate: output "1"
 - If the question is about restaurant information: output "2"
-- If the question relates to topics for university or international students, such as campus life, visas, SSNs, insurance, or setting up bank accounts, output "3". Some common concerns and questions for international students coming to the U.S. include topics like tipping culture, Chicago’s weather, and getting a driver’s license etc.
+- If the question relates to topics for university or international students, such as campus life, visas, SSNs, insurance, or setting up bank accounts, driver's licence, US culture, output "3". 
 - For any other questions: output "9".
 
 Now, use the following query to determine the number(These examples assume that no conversation history or context exists).

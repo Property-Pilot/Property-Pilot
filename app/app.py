@@ -297,7 +297,6 @@ def login_page():
                 st.experimental_rerun()
 
 
-# Function for the main chat app
 def chat_app():
     # Setup the bot and environment, but only once
     if 'setup_done' not in st.session_state:
@@ -309,6 +308,7 @@ def chat_app():
         st.session_state.neighborhoods_boundaries = neighborhoods_boundaries
         st.session_state.vectordb = vectordb
         st.session_state.setup_done = True
+        st.session_state.current_map_html = None  # Initialize with no map displayed
 
     # Ensure the current user and chat history are initialized
     current_user = st.session_state.current_user
@@ -317,31 +317,75 @@ def chat_app():
             {"role": "assistant", "content": "Hello! I know being an international student can feel like a lot, especially in a place like the U.S., where everything might feel new and different. How are you feeling about everything so far? Any specific areas where you’re feeling like you could use a bit of help or extra advice?"}
         ]
 
-    st.markdown(
-    """
-    <div style="text-align: justify; font-size: 15px; font-weight: bold;">
-        InternationAlly is an AI platform built to support international students as they settle into life abroad. Ally, your personal AI assistant, is here to help with apartment searches, local tips, and guidance on essentials like getting an SSN or health insurance.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+    # Sidebar content with logo, description, and buttons
+    with st.sidebar:
+        # CSS for a fixed sidebar
+        st.markdown(
+            """
+            <style>
+                /* Fix the sidebar */
+                .css-1d391kg {  /* This class targets the sidebar in Streamlit */
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    height: 100vh;
+                    background-color: #ffffff;
+                    padding-top: 1rem;
+                    z-index: 100;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        # Display logo
+        logo_base64 = load_image_as_base64("ally-logo.png")  # Ensure the path is correct
+        st.markdown(
+            f"""
+            <div style="text-align: center;">
+                <img src="data:image/jpg;base64,{logo_base64}" width="80">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    # Log Out and Clear Conversation Buttons
-    col_button1, col_button2 = st.columns([1, 1])
-    with col_button1:
+        # Description about InternationAlly
+        st.markdown(
+            """
+            <div style="text-align: center; font-size: 30px; font-weight: bold; margin-top: 10px;">
+                InternationAlly by PropertyPilot
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            """
+            <div style="text-align: center; font-size: 22px;">
+                Your Ally Abroad! 🤝 
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Clear Conversation, Edit Profile, and Log Out Buttons
+        if st.button("Clear Conversation"):
+            st.session_state.chat_histories[current_user] = [
+                {"role": "assistant", "content": "Hello! I know being an international student can feel like a lot, especially in a place like the U.S., where everything might feel new and different. How are you feeling about everything so far? Any specific areas where you’re feeling like you could use a bit of help or extra advice?"}
+            ]
+            st.session_state.current_map_html = None  # Clear map when clearing chat
+            st.success("Chat history cleared.")
+            st.experimental_rerun()
+
+        if st.button("Edit Profile"):
+            st.info("Edit Profile functionality coming soon!")  # Placeholder for future functionality
+
         if st.button("Log Out"):
             st.session_state.logged_in = False
             st.session_state.current_user = None
             st.experimental_rerun()
 
-    with col_button2:
-        if st.button("Clear Conversation"):
-            st.session_state.chat_histories[current_user] = [
-                {"role": "assistant", "content": "Hello! I know being an international student can feel like a lot, especially in a place like the U.S., where everything might feel new and different. How are you feeling about everything so far? Any specific areas where you’re feeling like you could use a bit of help or extra advice?"}
-            ]
-            st.success("Chat history cleared.")
-            st.experimental_rerun()
-
+    # Main chat UI
+    
     # Display chat messages
     for message in st.session_state.chat_histories[current_user]:
         with st.chat_message(message["role"]):
@@ -363,8 +407,6 @@ def chat_app():
             st.session_state.vectordb,
         )
 
-        print(map_html)
-
         # Display the chatbot's response
         with st.chat_message("assistant"):
             placeholder = st.empty()
@@ -382,6 +424,14 @@ def chat_app():
         # Update the map if needed
         if map_html and map_html != st.session_state.current_map_html:
             st.session_state.current_map_html = map_html
+        else:
+            st.session_state.current_map_html = None  # Set to None if no map is provided
+
+    # Conditionally display the map only if there is content
+    if st.session_state.get("current_map_html"):
+        st.components.v1.html(st.session_state.current_map_html, height=500, width=710)  # Adjust height and width as needed
+
+
 
 # Main app logic to control flow between login, sign-up, and chat pages
 if not st.session_state.logged_in:
